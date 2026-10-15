@@ -1,0 +1,12 @@
+# kind cluster for local testing. The web NodePort (30080) is published on the host;
+# scripts/kind-deploy.sh replaces the hostPort with $KIND_HOST_PORT (default 8080).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: maintainai
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        listenAddress: "127.0.0.1"
+        protocol: TCP

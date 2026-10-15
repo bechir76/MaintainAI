@@ -1,0 +1,60 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fullname := include "maintainai.fullname" . -}}
+# Only the API may call the MCP server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-mcp-server
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "maintainai.selector" (dict "root" . "component" "mcp-server") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "maintainai.from" (dict "root" . "component" "api") | nindent 8 }}
+      ports:
+        - port: {{ .Values.mcpServer.port }}
+---
+# Only the web front end may call the API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "maintainai.selector" (dict "root" . "component" "api") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "maintainai.from" (dict "root" . "component" "web") | nindent 8 }}
+      ports:
+        - port: {{ .Values.api.port }}
+{{- if .Values.postgres.enabled }}
+---
+# The database only accepts the components that need it; the API has no database access.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-postgres
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "maintainai.selector" (dict "root" . "component" "postgres") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "maintainai.from" (dict "root" . "component" "mcp-server") | nindent 8 }}
+        {{- include "maintainai.from" (dict "root" . "component" "simulator") | nindent 8 }}
+        {{- include "maintainai.from" (dict "root" . "component" "ingest") | nindent 8 }}
+      ports:
+        - port: 5432
+{{- end }}
+{{- end }}

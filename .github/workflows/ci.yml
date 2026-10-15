@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.3"
+  TRIVY_IMAGE: aquasec/trivy:0.58.1
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  test:
+    name: Tests (unit + integration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+      - run: uv sync --frozen
+      # Integration tests start Postgres + pgvector with Testcontainers (Docker is available on the runner)
+      - run: uv run pytest --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+
+  evals:
+    name: Offline evaluation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: maintainai
+          POSTGRES_PASSWORD: maintainai
+          POSTGRES_DB: maintainai
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U maintainai"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://maintainai:maintainai@localhost:5432/maintainai
+      LLM_PROVIDER: fake
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+      - run: uv sync --frozen
+      # Retrieval, refusal and safety gates; fails the build if a gate is not met
+      - run: uv run python -m evals --check --out eval-results.md
+      - if: always()
+        run: cat eval-results.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: eval-results.*
+
+  web:
+    name: Web UI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+      - run: helm lint deploy/helm/maintainai
+      - run: helm lint deploy/helm/maintainai -f deploy/helm/maintainai/values-kind.yaml
+      - run: helm template ci deploy/helm/maintainai -f deploy/helm/maintainai/values-kind.yaml > /dev/null
+
+  images:
+    name: Image ${{ matrix.image }}
+    needs: [lint, test, web]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: api, context: ., target: api }
+          - { image: mcp-server, context: ., target: mcp-server }
+          - { image: worker, context: ., target: worker }
+          - { image: web, context: web, target: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          tags: maintainai-${{ matrix.image }}:ci
+          load: true
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Check the container runs as non-root
+        run: |
+          user=$(docker image inspect maintainai-${{ matrix.image }}:ci --format '{{.Config.User}}')
+          echo "image user: $user"
+          test -n "$user" && test "$user" != "root" && test "$user" != "0"
+      # Trivy runs from its pinned container image rather than a third-party action
+      - name: Trivy vulnerability scan
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --no-progress \
+            maintainai-${{ matrix.image }}:ci

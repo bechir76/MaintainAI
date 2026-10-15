@@ -1,0 +1,54 @@
+{{- if .Values.simulator.enabled }}
+{{- $fullname := include "maintainai.fullname" . -}}
+{{- $sel := dict "root" . "component" "simulator" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-simulator
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "maintainai.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "maintainai.labels" . | nindent 8 }}
+        {{- include "maintainai.selector" $sel | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: simulator
+          image: {{ include "maintainai.image" (dict "root" . "name" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "simulator"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ $fullname }}-config
+          env:
+            {{- include "maintainai.pythonEnv" . | nindent 12 }}
+          # The loop touches a heartbeat file after every write; a stale file means it is stuck.
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/simulator-heartbeat') > 60)"
+            initialDelaySeconds: 90
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.simulator.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "maintainai.tmpVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "maintainai.tmpVolume" . | nindent 8 }}
+{{- end }}

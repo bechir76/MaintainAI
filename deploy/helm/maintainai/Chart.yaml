@@ -1,0 +1,9 @@
+apiVersion: v2
+name: maintainai
+description: Maintenance assistant for industrial equipment (agent API, MCP server, RAG over manuals, sensor simulator)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Bechir Mnissi
+    url: https://github.com/bechir76

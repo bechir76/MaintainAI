@@ -1,0 +1,100 @@
+# Default values for the MaintainAI chart. See values-kind.yaml for the local kind setup.
+
+image:
+  registry: ""            # e.g. ghcr.io/bechir76; empty for images loaded into the cluster
+  tag: local
+  pullPolicy: IfNotPresent
+
+# Secret values. Leave existingSecret empty to let the chart create one from these values.
+# For anything beyond a demo, create the Secret yourself (or with External Secrets) and
+# set existingSecret; the chart then never sees the values.
+secrets:
+  existingSecret: ""
+  mistralApiKey: ""
+  postgresPassword: maintainai
+  # "key:role" pairs accepted by the MCP server
+  mcpApiKeys: viewer-dev-key:viewer,technician-dev-key:technician
+  mcpViewerKey: viewer-dev-key
+  mcpTechnicianKey: technician-dev-key
+
+config:
+  llmProvider: auto
+  mistralChatModel: mistral-small-latest
+  mistralEmbedModel: mistral-embed
+  llmTimeoutSeconds: "30"
+  agentMaxToolCalls: "6"
+  agentTimeoutSeconds: "120"
+  retrievalTopK: "5"
+  simFaults: P-3:high_vibration,M-2:overheating
+  simIntervalSeconds: "5"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+postgres:
+  enabled: true
+  image: pgvector/pgvector:pg16
+  user: maintainai
+  database: maintainai
+  storage: 2Gi
+  storageClassName: ""
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+# Used when postgres.enabled=false (managed Postgres with pgvector)
+externalDatabase:
+  host: ""
+  port: 5432
+
+mcpServer:
+  replicas: 1
+  port: 8001
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+api:
+  replicas: 1
+  port: 8000
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+web:
+  replicas: 1
+  port: 8080
+  service:
+    type: ClusterIP
+    nodePort: null
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+simulator:
+  enabled: true
+  resources:
+    requests: { cpu: 25m, memory: 96Mi }
+    limits: { cpu: 200m, memory: 192Mi }
+
+ingest:
+  backoffLimit: 6
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+# Restricts traffic to the paths the app needs (web -> api -> mcp-server -> postgres).
+# Needs a CNI that enforces NetworkPolicy.
+networkPolicy:
+  enabled: false

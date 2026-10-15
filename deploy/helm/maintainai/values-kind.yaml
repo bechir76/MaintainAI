@@ -1,0 +1,19 @@
+# Local kind cluster: images are built and loaded by scripts/kind-deploy.sh,
+# the web UI is exposed on a NodePort mapped to localhost:8080 (deploy/kind/cluster.yaml).
+
+image:
+  registry: ""
+  tag: local
+  pullPolicy: Never
+
+web:
+  service:
+    type: NodePort
+    nodePort: 30080
+
+postgres:
+  storage: 1Gi
+
+# kindnet enforces NetworkPolicy, so the restricted traffic paths can be tried locally.
+networkPolicy:
+  enabled: true

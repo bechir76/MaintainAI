@@ -1,0 +1,19 @@
+{{- $fullname := include "maintainai.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-config
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+data:
+  LLM_PROVIDER: {{ .Values.config.llmProvider | quote }}
+  MISTRAL_CHAT_MODEL: {{ .Values.config.mistralChatModel | quote }}
+  MISTRAL_EMBED_MODEL: {{ .Values.config.mistralEmbedModel | quote }}
+  LLM_TIMEOUT_SECONDS: {{ .Values.config.llmTimeoutSeconds | quote }}
+  AGENT_MAX_TOOL_CALLS: {{ .Values.config.agentMaxToolCalls | quote }}
+  AGENT_TIMEOUT_SECONDS: {{ .Values.config.agentTimeoutSeconds | quote }}
+  RETRIEVAL_TOP_K: {{ .Values.config.retrievalTopK | quote }}
+  SIM_FAULTS: {{ .Values.config.simFaults | quote }}
+  SIM_INTERVAL_SECONDS: {{ .Values.config.simIntervalSeconds | quote }}
+  MCP_SERVER_URL: {{ printf "http://%s-mcp-server:%v/mcp" $fullname .Values.mcpServer.port | quote }}
+  MCP_ALLOWED_HOSTS: {{ printf "%s-mcp-server:*,%s-mcp-server.%s.svc.cluster.local:*,localhost:*,127.0.0.1:*" $fullname $fullname .Release.Namespace | quote }}

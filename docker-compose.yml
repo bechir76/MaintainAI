@@ -1,0 +1,103 @@
+# docker compose up --build
+# Starts Postgres + pgvector, ingests the manuals, then the simulator, MCP server, agent API
+# and web UI. Settings come from .env when present (see .env.example); defaults work offline.
+
+x-python-env: &python-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-maintainai}:${POSTGRES_PASSWORD:-maintainai}@db:5432/${POSTGRES_DB:-maintainai}
+  LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+  MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+  MISTRAL_CHAT_MODEL: ${MISTRAL_CHAT_MODEL:-mistral-small-latest}
+  MISTRAL_EMBED_MODEL: ${MISTRAL_EMBED_MODEL:-mistral-embed}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-maintainai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maintainai}
+      POSTGRES_DB: ${POSTGRES_DB:-maintainai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  ingest:
+    build: { context: ., target: worker }
+    image: maintainai-worker:local
+    command: ["python", "-m", "ingestion"]
+    environment:
+      <<: *python-env
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck: { disable: true }
+    <<: *hardening
+    restart: "no"
+
+  simulator:
+    image: maintainai-worker:local
+    environment:
+      <<: *python-env
+      SIM_FAULTS: ${SIM_FAULTS:-P-3:high_vibration,M-2:overheating}
+      SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-5}
+    depends_on:
+      db: { condition: service_healthy }
+      ingest: { condition: service_completed_successfully }
+    <<: *hardening
+
+  mcp-server:
+    build: { context: ., target: mcp-server }
+    image: maintainai-mcp-server:local
+    environment:
+      <<: *python-env
+      MCP_API_KEYS: ${MCP_API_KEYS:-viewer-dev-key:viewer,technician-dev-key:technician}
+    ports:
+      - "${MCP_PORT:-8001}:8001"
+    depends_on:
+      ingest: { condition: service_completed_successfully }
+    <<: *hardening
+
+  api:
+    build: { context: ., target: api }
+    image: maintainai-api:local
+    environment:
+      <<: *python-env
+      MCP_SERVER_URL: http://mcp-server:8001/mcp
+      MCP_VIEWER_KEY: ${MCP_VIEWER_KEY:-viewer-dev-key}
+      MCP_TECHNICIAN_KEY: ${MCP_TECHNICIAN_KEY:-technician-dev-key}
+      AGENT_MAX_TOOL_CALLS: ${AGENT_MAX_TOOL_CALLS:-6}
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      mcp-server: { condition: service_healthy }
+    <<: *hardening
+
+  web:
+    build: { context: ./web }
+    image: maintainai-web:local
+    environment:
+      API_UPSTREAM: api:8000
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

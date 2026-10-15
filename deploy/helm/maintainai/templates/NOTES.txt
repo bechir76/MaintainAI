@@ -1,0 +1,23 @@
+MaintainAI is starting. Watch the pods with:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+The ingestion job ({{ include "maintainai.fullname" . }}-ingest-{{ .Release.Revision }}) loads the manuals into pgvector;
+the MCP server waits for it before answering searches.
+
+{{- if eq .Values.web.service.type "NodePort" }}
+
+Web UI: http://localhost:8080 (kind maps NodePort {{ .Values.web.service.nodePort }} to the host port
+set by scripts/kind-deploy.sh, KIND_HOST_PORT, default 8080)
+{{- else }}
+
+Web UI:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "maintainai.fullname" . }}-web 8080:{{ .Values.web.port }}
+  open http://localhost:8080
+{{- end }}
+
+MCP server (for other agents):
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "maintainai.fullname" . }}-mcp-server 8001:{{ .Values.mcpServer.port }}
+{{- if .Values.networkPolicy.enabled }}
+  Note: the NetworkPolicy only admits the API pod; port-forwarding bypasses it.
+{{- end }}

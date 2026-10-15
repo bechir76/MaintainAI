@@ -1,0 +1,39 @@
+{{- $fullname := include "maintainai.fullname" . -}}
+# One Job per release revision: ingestion is idempotent, so re-running it on upgrade only
+# re-embeds documents whose content or pipeline version changed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullname }}-ingest-{{ .Release.Revision }}
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.ingest.backoffLimit }}
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "maintainai.labels" . | nindent 8 }}
+        {{- include "maintainai.selector" (dict "root" . "component" "ingest") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ingest
+          image: {{ include "maintainai.image" (dict "root" . "name" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "ingestion"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ $fullname }}-config
+          env:
+            {{- include "maintainai.pythonEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.ingest.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "maintainai.tmpVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "maintainai.tmpVolume" . | nindent 8 }}

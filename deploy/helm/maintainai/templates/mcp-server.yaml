@@ -1,0 +1,76 @@
+{{- $fullname := include "maintainai.fullname" . -}}
+{{- $sel := dict "root" . "component" "mcp-server" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-mcp-server
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.mcpServer.port }}
+      targetPort: http
+  selector:
+    {{- include "maintainai.selector" $sel | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-mcp-server
+  labels:
+    {{- include "maintainai.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mcpServer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "maintainai.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "maintainai.labels" . | nindent 8 }}
+        {{- include "maintainai.selector" $sel | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp-server
+          image: {{ include "maintainai.image" (dict "root" . "name" "mcp-server") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ $fullname }}-config
+          env:
+            {{- include "maintainai.pythonEnv" . | nindent 12 }}
+            - name: MCP_API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "maintainai.secretName" . }}
+                  key: MCP_API_KEYS
+            - name: MCP_PORT
+              value: {{ .Values.mcpServer.port | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.mcpServer.port }}
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.mcpServer.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "maintainai.tmpVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "maintainai.tmpVolume" . | nindent 8 }}
