@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     mcp_api_keys: SecretStr = SecretStr("viewer-dev-key:viewer,technician-dev-key:technician")
     mcp_host: str = "0.0.0.0"  # noqa: S104 - bound inside a container
     mcp_port: int = 8001
+    # Host headers accepted by the MCP endpoint (DNS rebinding protection). Empty disables it.
+    mcp_allowed_hosts: str = "localhost:*,127.0.0.1:*,mcp-server:*,maintainai-mcp-server:*"
 
     # Agent API
     mcp_server_url: str = "http://localhost:8001/mcp"

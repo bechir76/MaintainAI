@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from psycopg_pool import ConnectionPool
@@ -71,8 +73,12 @@ async def search(
         ORDER BY c.embedding <=> %(q)s
         LIMIT %(k)s
     """
-    with pool.connection() as conn:
-        rows = conn.execute(sql, params).fetchall()
+
+    def run_query() -> list[tuple[Any, ...]]:
+        with pool.connection() as conn:
+            return conn.execute(sql, params).fetchall()
+
+    rows = await asyncio.to_thread(run_query)
 
     candidates = [
         RetrievedChunk(
