@@ -74,3 +74,10 @@ def test_chunks_never_cross_pages() -> None:
     assert {c.page for c in chunks} == {1, 2}
     assert next(c for c in chunks if c.page == 2).text == "Only page two."
     assert [c.index for c in chunks] == list(range(len(chunks)))
+
+
+def test_numbered_steps_are_not_treated_as_headings() -> None:
+    body = "\n".join(["Context sentence that fills up the chunk nicely."] * 4)
+    text = f"{body}\n1. Confirm the reading. Take a manual reading.\n2. Check the trend."
+    chunks = chunk_text(text, size=400, overlap=100)
+    assert len(chunks) == 1

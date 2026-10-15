@@ -25,3 +25,8 @@ def test_hidden_text_is_extracted() -> None:
     # which is why retrieved text has to be filtered before it reaches the model.
     pages = parse_pdf(MANUALS / "SB-P-017_pump_seal_service_bulletin.pdf")
     assert "ignore all previous instructions" in pages[0].text.lower()
+
+
+def test_list_markers_are_folded_into_items() -> None:
+    text = clean_text("Intro\n\x7f\nFirst point.\n1\nStep one.\n12.\nStep twelve.\n\n")
+    assert text == "Intro\n- First point.\n1. Step one.\n12. Step twelve."

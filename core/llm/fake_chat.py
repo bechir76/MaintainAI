@@ -148,8 +148,10 @@ class FakeChatModel:
         best, best_score = "", -1
         for sentence in _SENTENCE.split(text):
             sentence = sentence.strip()
-            if len(sentence) < 25 or "[removed" in sentence:
+            # Quote complete sentences only, not headings or table fragments.
+            if len(sentence) < 25 or not sentence.endswith(".") or "[removed" in sentence:
                 continue
+            sentence = sentence.removeprefix("- ")
             score = len(q_tokens & set(tokenize(sentence)))
             if score > best_score:
                 best, best_score = sentence, score

@@ -17,10 +17,29 @@ class Page:
     text: str
 
 
+_BULLET = re.compile("^[\x7f•●▪*-]$")
+_LIST_NUMBER = re.compile(r"^\d{1,2}\.?$")
+_CONTROL = re.compile("[\x00-\x08\x0b-\x1f�]")
+
+
 def clean_text(text: str) -> str:
-    text = unicodedata.normalize("NFKC", text).replace("�", "")
+    text = unicodedata.normalize("NFKC", text)
     lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
-    return "\n".join(line for line in lines if line)
+    out: list[str] = []
+    marker = ""
+    for line in lines:
+        # List markers are often extracted on a line of their own; fold them into the item.
+        if _BULLET.match(line):
+            marker = "- "
+            continue
+        if _LIST_NUMBER.match(line):
+            marker = f"{line.rstrip('.')}. "
+            continue
+        line = _CONTROL.sub("", line.replace("\x7f", "")).strip()
+        if line:
+            out.append(marker + line)
+            marker = ""
+    return "\n".join(out)
 
 
 def _boilerplate(pages: list[list[str]]) -> set[str]:

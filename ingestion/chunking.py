@@ -13,7 +13,8 @@ from dataclasses import dataclass
 
 from ingestion.pdf import Page
 
-_HEADING = re.compile(r"^\d+(\.\d+)*\.? [A-Z]")
+# "4. Troubleshooting high vibration" is a heading; "1. Confirm the reading. ..." is a list item.
+HEADING = re.compile(r"^\d+(\.\d+)*\.? [A-Z][^.:;]{0,70}$")
 _SENTENCE_END = re.compile(r"(?<=[.;:!?])\s+")
 
 
@@ -73,7 +74,7 @@ def chunk_text(text: str, size: int = 900, overlap: int = 150) -> list[str]:
         fresh = 0
 
     for line in lines:
-        at_heading = bool(_HEADING.match(line)) and length > size // 2
+        at_heading = bool(HEADING.match(line)) and length > size // 2
         if fresh and (length + len(line) + 1 > size or at_heading):
             emit()
             if at_heading:

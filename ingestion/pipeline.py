@@ -16,6 +16,9 @@ from ingestion.pdf import parse_pdf
 
 log = logging.getLogger(__name__)
 
+# Bump when parsing or chunking changes so existing documents are re-ingested.
+PIPELINE_VERSION = 2
+
 
 @dataclass(frozen=True)
 class DocumentMeta:
@@ -64,7 +67,9 @@ async def ingest_document(
     force: bool = False,
 ) -> int | None:
     """Ingest one PDF. Returns the number of chunks, or None if it was already up to date."""
-    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    # Re-ingest when the file, the parsing/chunking code or the chunk settings change.
+    settings_key = f"{PIPELINE_VERSION}:{chunk_size}:{chunk_overlap}".encode()
+    sha = hashlib.sha256(path.read_bytes() + settings_key).hexdigest()
     with pool.connection() as conn:
         row = conn.execute(
             """
