@@ -43,7 +43,7 @@ jobs:
       - run: uv sync --frozen
       # Integration tests start Postgres + pgvector with Testcontainers (Docker is available on the runner)
       - run: uv run pytest --cov --cov-report=term --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
@@ -79,7 +79,7 @@ jobs:
       - run: uv run python -m evals --check --out eval-results.md
       - if: always()
         run: cat eval-results.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-results
