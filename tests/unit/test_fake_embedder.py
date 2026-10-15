@@ -38,3 +38,10 @@ def test_tokenize_and_stem() -> None:
     assert stem("bearings") == stem("bearing")
     assert stem("vibrating") == stem("vibration") == stem("vibrate")
     assert stem("gas") == "gas"
+
+
+def test_compound_words_and_e_endings() -> None:
+    assert "lockout" in tokenize("Lockout/Tagout procedure")
+    assert "lockout/tagout" in tokenize("Lockout/Tagout procedure")
+    assert stem("regreased") == stem("regrease") == stem("regreasing")
+    assert tokenize("P-100/250") == ["p-100/250"]

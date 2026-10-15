@@ -18,7 +18,7 @@ def test_plan_reads_sensors_and_searches_for_named_machine() -> None:
 
 
 def test_plan_ticket_only_when_asked() -> None:
-    calls = FakeChatModel().plan("Create a ticket for m2, winding alarm", ALL_TOOLS)
+    calls = FakeChatModel().plan("Create a ticket for m-2, winding alarm", ALL_TOOLS)
     ticket = next(c for c in calls if c.name == "create_maintenance_ticket")
     assert ticket.arguments["machine_id"] == "M-2"
     assert ticket.arguments["priority"] == "high"
@@ -72,3 +72,10 @@ async def test_stream_round_trip() -> None:
     second = [e async for e in model.stream(history, tools)]
     text = "".join(e.text for e in second if isinstance(e, TextDelta))
     assert text.endswith("The vibration alarm limit is 7.1 mm/s RMS. [S1]")
+
+
+def test_bearing_codes_and_models_are_not_machine_ids() -> None:
+    calls = FakeChatModel().plan(
+        "Grease for the 6312 C3 bearing of the M-200L and P-100/250?", ALL_TOOLS
+    )
+    assert [c.name for c in calls] == ["search_manuals"]

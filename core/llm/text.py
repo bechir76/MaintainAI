@@ -31,8 +31,10 @@ def stem(token: str) -> str:
         "s",
     ):
         if token.endswith(suffix) and len(token) - len(suffix) >= 4:
-            return token[: -len(suffix)]
-    return token
+            token = token[: -len(suffix)]
+            break
+    # "regrease" and "regreased" should meet at the same stem.
+    return token[:-1] if token.endswith("e") and len(token) > 4 else token
 
 
 def tokenize(text: str) -> list[str]:
@@ -40,5 +42,12 @@ def tokenize(text: str) -> list[str]:
     for raw in _TOKEN.findall(text.lower()):
         if raw in STOPWORDS:
             continue
-        tokens.append(stem(raw) if raw.isalpha() else raw)
+        if raw.isalpha():
+            tokens.append(stem(raw))
+            continue
+        tokens.append(raw)
+        # Compound words such as "lockout/tagout" also match their parts.
+        parts = re.split(r"[-./]", raw)
+        if len(parts) > 1 and all(p.isalpha() and len(p) >= 3 for p in parts):
+            tokens.extend(stem(p) for p in parts if p not in STOPWORDS)
     return tokens

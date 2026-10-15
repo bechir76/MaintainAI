@@ -17,7 +17,7 @@ from core.llm.text import tokenize
 
 
 class FakeEmbedder:
-    name = "fake-hash-v1"
+    name = "fake-hash-v2"
 
     def __init__(self, dim: int = 1024) -> None:
         self.dim = dim

@@ -21,7 +21,8 @@ from core.llm.text import tokenize
 
 REFUSAL = "I don't know based on the available documents."
 
-_MACHINE_ID = re.compile(r"\b([PMC])-?(\d{1,2})\b", re.IGNORECASE)
+# The hyphen is required: "P-3" is a machine, "C3" is a bearing clearance class.
+_MACHINE_ID = re.compile(r"\b([PMC])-(\d{1,2})\b(?![/.]\d)", re.IGNORECASE)
 _TYPE_BY_PREFIX = {"P": "pump", "M": "motor", "C": "compressor"}
 _TYPE_WORDS = {
     "pump": "pump",
