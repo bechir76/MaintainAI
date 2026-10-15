@@ -7,7 +7,7 @@ RUN npm run build
 
 
 # Unprivileged nginx (uid 101, port 8080) serving the SPA and proxying /api to the agent API
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.29-alpine
 # Pick up Alpine security fixes released after the base image was built
 USER root
 RUN apk upgrade --no-cache
