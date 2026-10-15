@@ -84,10 +84,12 @@ docker compose exec db psql -U maintainai -c "SELECT ts, principal, tool, status
 import asyncio
 from core.mcp_client import connect, result_payload
 
+
 async def main() -> None:
     async with connect("http://localhost:8001/mcp", "viewer-dev-key") as client:
         result = await client.call_tool("get_sensor_readings", {"machine_id": "P-3"})
         print(result_payload(result)["flags"])
+
 
 asyncio.run(main())
 ```
