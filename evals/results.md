@@ -1,6 +1,6 @@
 # Evaluation results
 
-Mode: **offline** · 25 cases · generated 2026-10-15 21:23 UTC by `make eval`.
+Mode: **offline** · 25 cases · produced 2026-10-15 21:59 UTC by `make eval`.
 
 Offline run (deterministic fake planner and hashing embedder, no API key). Retrieval and safety metrics are meaningful; answer-quality metrics need `MISTRAL_API_KEY` and are shown as n/a.
 
