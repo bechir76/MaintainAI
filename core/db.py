@@ -15,6 +15,9 @@ log = logging.getLogger(__name__)
 
 def _configure(conn: psycopg.Connection) -> None:
     register_vector(conn)
+    # Keep scanning the HNSW index until enough rows pass the role/type filters.
+    conn.execute("SET hnsw.iterative_scan = relaxed_order")
+    conn.commit()
 
 
 def create_pool(database_url: str, *, min_size: int = 1, max_size: int = 5) -> ConnectionPool:

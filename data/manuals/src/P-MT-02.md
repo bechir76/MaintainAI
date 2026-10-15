@@ -45,7 +45,7 @@ The diametral clearance between impeller and casing wear ring is 0.30 mm when ne
 | High vibration | Cavitation (insufficient NPSH) | Check suction valve fully open, strainer clean, suction level. |
 | High vibration | Impeller imbalance or deposits | Clean or balance the impeller. |
 | High vibration | Worn or damaged bearings | Replace bearings (section 6). |
-| High vibration | Loose foundation bolts or soft foot | Re-torque bolts to 140 N·m; correct soft foot. |
+| High vibration | Loose foundation bolts or soft foot | Re-torque bolts to 140 Nm; correct soft foot. |
 | High vibration | Operation far from BEP | Adjust the duty point with the discharge valve. |
 | Low discharge pressure | Air in suction line or casing | Vent the casing; check suction joints for air leaks. |
 | Low discharge pressure | Wrong direction of rotation | Swap two motor phases. |
@@ -73,7 +73,7 @@ Follow these steps when a P-Series pump reaches the vibration warning (4.5 mm/s 
 2. **Check the trend.** A sudden step points to a mechanical event (loose part, damaged impeller). A slow rise over weeks points to wear, deposits or bearing degradation.
 3. **Decide whether to stop.** If the vibration exceeds 7.1 mm/s RMS, stop the pump and investigate before restarting. Inform the shift supervisor.
 4. **Check the operating point.** Compare discharge pressure and flow to the duty point. Listen at the suction for cavitation noise. Make sure the suction valve is fully open and the strainer is clean.
-5. **Check the foundation.** With the pump running, check for movement at the baseplate. After isolation, re-torque the foundation bolts to 140 N·m and check for soft foot (0.05 mm maximum).
+5. **Check the foundation.** With the pump running, check for movement at the baseplate. After isolation, re-torque the foundation bolts to 140 Nm and check for soft foot (0.05 mm maximum).
 6. **Isolate the pump** according to SOP-LOTO-001 before touching the coupling or rotating parts.
 7. **Check alignment and coupling.** Measure shaft alignment and inspect the coupling elastomer for wear or cracks. Re-align if parallel offset or angular misalignment exceeds 0.05 mm.
 8. **Check the bearings.** Rotate the shaft by hand and feel for roughness. High bearing temperature together with high-frequency vibration means the bearings must be replaced.
@@ -89,7 +89,7 @@ Follow these steps when a P-Series pump reaches the vibration warning (4.5 mm/s 
 3. Remove the impeller nut and the impeller. Mark the position of the seal on the shaft sleeve.
 4. Remove the old seal. Clean the shaft sleeve and the seal chamber. Replace the sleeve if it is scored.
 5. Fit the new seal using only water or a seal lubricant; never use oil or grease on EPDM elastomers.
-6. Refit the impeller and tighten the impeller nut to **95 N·m** (P-80/200) or **135 N·m** (P-100/250).
+6. Refit the impeller and tighten the impeller nut to **95 Nm** (P-80/200) or **135 Nm** (P-100/250).
 7. Reassemble, re-align and fill the pump before start-up. Never start a pump with a new seal dry.
 
 ## 6. Bearing replacement
@@ -103,7 +103,7 @@ Follow these steps when a P-Series pump reaches the vibration warning (4.5 mm/s 
 
 | Joint | Torque |
 |---|---|
-| Foundation bolts M16 | 140 N·m |
-| Impeller nut P-80/200 | 95 N·m |
-| Impeller nut P-100/250 | 135 N·m |
-| Casing bolts M12 | 60 N·m |
+| Foundation bolts M16 | 140 Nm |
+| Impeller nut P-80/200 | 95 Nm |
+| Impeller nut P-100/250 | 135 Nm |
+| Casing bolts M12 | 60 Nm |

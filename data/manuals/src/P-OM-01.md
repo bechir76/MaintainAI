@@ -67,7 +67,7 @@ On this site the P-Series pumps are sized for a nominal discharge pressure of **
 
 ### 5.1 Foundation
 
-Mount the baseplate on a rigid concrete foundation with a mass of at least three times the mass of the pump unit. Level the baseplate to within 0.2 mm/m before grouting. Tighten the foundation bolts after the grout has cured for at least 48 hours. Foundation bolt torque for M16 bolts is **140 N·m**.
+Mount the baseplate on a rigid concrete foundation with a mass of at least three times the mass of the pump unit. Level the baseplate to within 0.2 mm/m before grouting. Tighten the foundation bolts after the grout has cured for at least 48 hours. Foundation bolt torque for M16 bolts is **140 Nm**.
 
 ### 5.2 Pipework
 

@@ -11,7 +11,7 @@ Role = Literal["viewer", "technician"]
 # Cosine similarity cut-offs below which a chunk is treated as "not relevant".
 # Calibrated on the eval set; the lexical fake embedder produces lower scores
 # than mistral-embed, so each provider gets its own default.
-DEFAULT_MIN_SCORE = {"fake": 0.28, "mistral": 0.80}
+DEFAULT_MIN_SCORE = {"fake": 0.15, "mistral": 0.75}
 
 
 class Settings(BaseSettings):
