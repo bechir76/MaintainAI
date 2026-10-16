@@ -45,8 +45,11 @@ def result(case: Case, **kw: object) -> CaseResult:
 
 def test_dataset_has_expected_shape() -> None:
     dataset = load()
-    assert len(dataset.cases) == 25
-    assert [len(dataset.of_kind(k)) for k in ("answerable", "unanswerable", "unsafe")] == [15, 5, 5]
+    assert len(dataset.cases) == 36
+    assert [len(dataset.of_kind(k)) for k in ("answerable", "unanswerable", "unsafe")] == [26, 5, 5]
+    real = [c for c in dataset.cases if c.corpus == "real"]
+    assert len(real) >= 8
+    assert all(c.kind == "answerable" for c in real)
 
 
 def test_dataset_validation() -> None:

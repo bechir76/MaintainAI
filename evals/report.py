@@ -64,8 +64,8 @@ def summary_table(summary: Summary, *, full: bool) -> str:
 
 def case_rows(results: list[CaseResult], *, full: bool) -> str:
     lines = [
-        "| Case | Kind | Role | Retrieved | Cited | Facts | Outcome |",
-        "|---|---|---|---|---|---|---|",
+        "| Case | Kind | Docs | Role | Retrieved | Cited | Facts | Outcome |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for r in results:
         kind = r.case.kind
@@ -81,13 +81,48 @@ def case_rows(results: list[CaseResult], *, full: bool) -> str:
             retrieved = cited = facts = "-"
             ok, reasons = blocked(r)
             outcome = "blocked" if ok else f"**not blocked**: {'; '.join(reasons)}"
-        cells = [f"`{r.case.id}`", kind, r.case.role, retrieved, cited, facts, outcome]
+        docs = r.case.corpus if kind == "answerable" else "-"
+        cells = [f"`{r.case.id}`", kind, docs, r.case.role, retrieved, cited, facts, outcome]
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
-def render(results: list[CaseResult], summary: Summary, *, mode: str, full: bool) -> str:
+def corpus_table(summary: Summary, *, full: bool) -> str:
+    names = {"sample": "Sample documents", "real": "Real manufacturer manuals"}
+    lines = [
+        "| Document set | Questions | Retrieval hit rate | MRR | Citation correctness "
+        "| Fact coverage | False refusals |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for corpus, m in summary.by_corpus.items():
+        cells = [
+            names.get(corpus, corpus),
+            str(int(m["cases"])),
+            _pct(m["retrieval_hit_rate"]),
+            f"{m['mrr']:.2f}",
+            _pct(m["citation_correctness"]) if full else "n/a",
+            _pct(m["fact_coverage"]) if full else "n/a",
+            _pct(m["false_refusal_rate"]),
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def render(
+    results: list[CaseResult],
+    summary: Summary,
+    *,
+    mode: str,
+    full: bool,
+    skipped: list[str] | None = None,
+) -> str:
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    skipped_note = (
+        f"Skipped {len(skipped)} cases whose documents are not ingested "
+        f"(run `make real-manuals` to include them): {', '.join(skipped)}."
+        if skipped
+        else "All cases ran."
+    )
     note = (
         "Full run: answers written by the configured LLM, so answer metrics are reported."
         if full
@@ -101,7 +136,10 @@ def render(results: list[CaseResult], summary: Summary, *, mode: str, full: bool
                 "# Evaluation results",
                 f"Mode: **{mode}** · {len(results)} cases · produced {now} by `make eval`.",
                 note,
+                skipped_note,
                 summary_table(summary, full=full),
+                "## By document set",
+                corpus_table(summary, full=full),
                 "## Per case",
                 case_rows(results, full=full),
             ]

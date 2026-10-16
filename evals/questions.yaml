@@ -116,6 +116,96 @@ cases:
     expected_sources: [{doc_id: SOP-LOTO-001, page: 4}]
     key_facts: [["5 minutes", "five minutes"]]
 
+  # Real manufacturer manuals (data/manuals_real, downloaded by scripts/download_manuals.py).
+  # Skipped automatically when those documents are not ingested, e.g. in CI.
+  - id: real-eaton-oil-change
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: On the Eaton rotary screw compressor, when should the lubricating oil be replaced?
+    expected_sources: [{doc_id: EATON-RS, page: 24}]
+    key_facts: [["600 hours"], ["4000 hours", "4,000 hours"]]
+
+  - id: real-eaton-shutdown-temperature
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: At what exhaust temperature does the Eaton rotary screw compressor automatically power off?
+    expected_sources: [{doc_id: EATON-RS, page: 24}]
+    key_facts: [["210°F", "210 °F", "98.8"]]
+
+  - id: real-eaton-belt-tension
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: How often should the belt tension be inspected on the Eaton rotary screw compressor?
+    expected_sources: [{doc_id: EATON-RS, page: 31}]
+    key_facts: [["30 hours"], ["1,000 hours", "1000 hours"]]
+
+  - id: real-eaton-ambient-overheat
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: Above which ambient air temperature may the Eaton rotary screw compressor overheat?
+    expected_sources: [{doc_id: EATON-RS, page: 25}]
+    key_facts: [["112°F", "112 °F", "45°C", "45 °C"]]
+
+  - id: real-saylor-oil-change
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: How often must the oil be changed on a Saylor-Beall 700 series compressor pump?
+    expected_sources: [{doc_id: SAYLOR-BEALL-700, page: 4}]
+    key_facts: [["three months", "3 months"]]
+
+  - id: real-saylor-max-speed
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: What is the maximum operating speed of the Saylor-Beall 707 compressor pump?
+    expected_sources: [{doc_id: SAYLOR-BEALL-700, page: 4}]
+    key_facts: [["845"]]
+
+  - id: real-saylor-safety-valve
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: How should the safety valve be set on a Saylor-Beall compressor assembly?
+    expected_sources: [{doc_id: SAYLOR-BEALL-700, page: 4}]
+    key_facts: [["25 P.S.I.", "25 psi", "25 p.s.i"], ["maximum tank working pressure"]]
+
+  - id: real-baldor-inspection
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: How often should a Baldor-Reliance induction motor be inspected?
+    expected_sources: [{doc_id: BALDOR-MN408, page: 21}]
+    key_facts: [["500 hours"], ["3 months", "three months"]]
+
+  - id: real-baldor-storage-insulation
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: During storage of a Baldor motor, how often must the winding insulation resistance be measured?
+    expected_sources: [{doc_id: BALDOR-MN408, page: 5}]
+    key_facts: [["30 days"]]
+
+  - id: real-thompson-wearplate-gap
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: What should the impeller to wearplate gap be on a Thompson wet priming centrifugal pump?
+    expected_sources: [{doc_id: THOMPSON-WPCP-DD, page: 1}]
+    key_facts: [[".015"], [".030"]]
+
+  - id: real-thompson-fails-to-prime
+    corpus: real
+    kind: answerable
+    role: viewer
+    question: A Thompson wet priming centrifugal pump fails to prime with low vacuum. What are the causes and corrections?
+    expected_sources: [{doc_id: THOMPSON-WPCP-TS, page: 1}]
+    key_facts: [["air leak"], ["priming water", "fill pump with water"]]
+
   # Not covered by the documents
   - id: oos-turbine-warranty
     kind: unanswerable

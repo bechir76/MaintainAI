@@ -14,7 +14,7 @@ from core.llm import build_chat_model, build_embedder
 from evals import dataset as ds
 from evals.metrics import CaseResult, Summary, summarise
 from evals.report import render
-from evals.runner import MANUALS, run_all, seed_sensor_data
+from evals.runner import MANUALS, REAL_MANUALS, run_all, seed_sensor_data
 from ingestion.pipeline import ingest_directory
 from mcp_server.embedded import serve_in_background
 from mcp_server.server import ServerDeps
@@ -44,7 +44,9 @@ def failed_gates(summary: Summary, *, full: bool) -> list[str]:
     return failures
 
 
-async def _evaluate(questions: Path) -> tuple[list[CaseResult], Summary, str, bool]:
+async def _evaluate(
+    questions: Path,
+) -> tuple[list[CaseResult], list[str], Summary, str, bool]:
     settings = get_settings()
     full = settings.resolved_provider == "mistral"
     embedder = build_embedder(settings)
@@ -52,23 +54,25 @@ async def _evaluate(questions: Path) -> tuple[list[CaseResult], Summary, str, bo
     pool = create_pool(settings.database_url, max_size=6)
     try:
         seed_machines(pool)
-        await ingest_directory(
-            pool,
-            embedder,
-            MANUALS,
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-        )
+        for directory in (MANUALS, REAL_MANUALS):
+            if (directory / "manifest.yaml").exists():
+                await ingest_directory(
+                    pool,
+                    embedder,
+                    directory,
+                    chunk_size=settings.chunk_size,
+                    chunk_overlap=settings.chunk_overlap,
+                )
         seed_sensor_data(pool)
         dataset = ds.load(questions)
         with serve_in_background(
             ServerDeps(pool=pool, embedder=embedder, settings=settings)
         ) as url:
-            results = await run_all(dataset, model, settings, pool, url)
+            results, skipped = await run_all(dataset, model, settings, pool, url)
     finally:
         pool.close()
     mode = f"full ({model.name} + {embedder.name})" if full else "offline"
-    return results, summarise(results), mode, full
+    return results, skipped, summarise(results), mode, full
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -83,10 +87,12 @@ def main(argv: list[str] | None = None) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    results, summary, mode, full = asyncio.run(_evaluate(args.questions))
-    args.out.write_text(render(results, summary, mode=mode, full=full), encoding="utf-8")
+    results, skipped, summary, mode, full = asyncio.run(_evaluate(args.questions))
+    report = render(results, summary, mode=mode, full=full, skipped=skipped)
+    args.out.write_text(report, encoding="utf-8")
     (args.out.with_suffix(".json")).write_text(
-        json.dumps({"mode": mode, "summary": asdict(summary)}, indent=2), encoding="utf-8"
+        json.dumps({"mode": mode, "summary": asdict(summary), "skipped": skipped}, indent=2),
+        encoding="utf-8",
     )
     print(args.out.read_text(encoding="utf-8").split("## Per case")[0])
 

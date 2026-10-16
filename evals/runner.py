@@ -22,6 +22,7 @@ from simulator.runner import backfill
 
 log = logging.getLogger("evals")
 MANUALS = Path(__file__).resolve().parents[1] / "data" / "manuals"
+REAL_MANUALS = MANUALS.with_name("manuals_real")
 EVAL_FAULTS = "P-3:high_vibration,M-2:overheating"
 
 
@@ -95,17 +96,33 @@ async def run_case(
     )
 
 
+def ingested_doc_ids(pool: ConnectionPool) -> set[str]:
+    with pool.connection() as conn:
+        return {r[0] for r in conn.execute("SELECT doc_id FROM documents").fetchall()}
+
+
 async def run_all(
     dataset: Dataset,
     model: ChatModel,
     settings: Settings,
     pool: ConnectionPool,
     mcp_url: str,
-) -> list[CaseResult]:
+) -> tuple[list[CaseResult], list[str]]:
+    """Run every case; returns the results and the ids of skipped cases.
+
+    A case is skipped when none of its expected documents is ingested (the downloaded
+    manufacturer manuals are not available in CI, for example).
+    """
     agent = Agent(model, settings)
-    results = []
+    available = ingested_doc_ids(pool)
+    results, skipped = [], []
     for case in dataset.cases:
+        expected = {s.doc_id for s in case.expected_sources}
+        if expected and not expected & available:
+            log.info("%-34s skipped, documents not ingested", case.id)
+            skipped.append(case.id)
+            continue
         result = await run_case(case, agent, mcp_url, settings, pool)
         log.info("%-34s %-12s %5d ms", case.id, case.kind, result.elapsed_ms)
         results.append(result)
-    return results
+    return results, skipped

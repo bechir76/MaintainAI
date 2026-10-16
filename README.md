@@ -24,6 +24,7 @@
 - [Architecture](#architecture)
 - [Features](#features)
 - [Security model](#security-model)
+- [Data: what is real and what is simulated](#data-what-is-real-and-what-is-simulated)
 - [Run it](#run-it)
 - [Connect the MCP server to another agent](#connect-the-mcp-server-to-another-agent)
 - [Evaluation](#evaluation)
@@ -44,7 +45,7 @@ flowchart LR
     mcp --> manuals[(pgvector<br/>manual chunks)]
     mcp --> sensors[(Sensor readings)]
     mcp --> tickets[(Tickets<br/>+ audit log)]
-    sim[Sensor simulator] --> sensors
+    sim[Simulator or replay<br/>MetroPT-3, CWRU] --> sensors
     ingest[Ingestion<br/>PDF, chunks, embeddings] --> manuals
 ```
 
@@ -75,7 +76,7 @@ sequenceDiagram
 | `api/` | FastAPI | Agent loop (MCP client), SSE streaming, `/chat`, `/machines`, `/health` |
 | `mcp_server/` | Official MCP Python SDK | `search_manuals`, `get_sensor_readings`, `list_machines`, `create_maintenance_ticket` |
 | `ingestion/` | pypdf | PDF parsing with page numbers, chunking with overlap, embeddings into pgvector |
-| `simulator/` | Python | Writes readings for 5 machines every 5 s, with configurable faults |
+| `simulator/` | Python, numpy | Writes readings for 5 machines every 5 s: simulated with configurable faults, or replayed from MetroPT-3 and CWRU |
 | `evals/` | YAML + runner | 25 questions: retrieval, citations, facts, refusals, unsafe requests |
 | `core/` | | Config, DB, retrieval, LLM and embedding providers (Mistral + offline fake) |
 | `deploy/helm/` | Helm, kind | Chart with probes, limits, Secret, NetworkPolicies |
@@ -128,6 +129,89 @@ show it is removed before it reaches the model and that no ticket is created
 **Known limitations (demo scope).** The UI picks the role with a switch; in production the role
 would come from the user's identity (SSO group claims) and the API would hold no shared keys.
 API keys are static (no rotation or expiry), and there is no rate limiting yet.
+
+## Data: what is real and what is simulated
+
+MaintainAI runs on a mix of real public data and simulated data. Everything real is downloaded
+by a script into gitignored folders and is never committed.
+
+| Data | Source | Real or simulated |
+|---|---|---|
+| Compressor **C-1** sensors: pressure, oil temperature, motor current, loaded duty | **MetroPT-3** dataset (UCI), metro train air compressor, Feb-Aug 2020, replayed as live | **Real** (replay mode) |
+| Pump **P-3** bearing vibration: velocity and high-frequency acceleration | **CWRU Bearing Data Center**, drive-end accelerometer, healthy bearing then inner-race faults of 0.007, 0.014 and 0.021 in | **Real** (replay mode) |
+| C-1 vibration; P-3 temperature, pressure and current; P-1, M-1, M-2 | Sensor simulator with configurable faults | Simulated |
+| 6 manufacturer manuals (pumps, compressors, motors) | Downloaded from the manufacturers' websites, see [sources](#manufacturer-manuals) | **Real** |
+| 11 sample documents (P-, M-, C-Series manuals, safety procedures, site standard) | Written for this project | Fictional sample documents |
+
+Simulated mode stays the default (and is what CI uses), so the project runs without downloads.
+
+### Replaying real sensor data
+
+```bash
+make datasets      # downloads MetroPT-3 + CWRU into data/raw and prepares the replay files
+make up-replay     # same stack, with SIM_MODE=replay
+```
+
+The replay maps wall-clock time onto dataset time: `REPLAY_SPEED=60` plays one hour of MetroPT-3
+per minute, starting at `REPLAY_START` (default 3 h before the first reported air leak, so it
+shows up after about 3 minutes). P-3 cycles through the CWRU recordings, `REPLAY_STAGE_MINUTES`
+per bearing condition. Readings are written to the same table as simulated ones, so the MCP
+tools, the agent and the UI work unchanged; replayed machines carry a "Real data" badge.
+
+![Replay of MetroPT-3 and CWRU data](docs/images/replay.png)
+
+**Alarm limits for replayed machines come from the data, not from the sample manuals.** The
+manuals' limits are written for the fictional machines (a 67 A, 8 bar compressor), and the real
+assets are different machines. So the limits are derived when the data is prepared and stored
+per machine in the database:
+
+- **MetroPT-3:** oil temperature at the 99th / 99.9th percentile of the healthy period
+  (Feb-Mar 2020): 76.5 / 81.7 °C; low panel pressure at the 1st / 0.1th percentile: 8.07 /
+  5.51 bar. Air leaks keep the compressor loaded, so a derived *loaded duty over the last
+  30 minutes* channel has a warning at 80% and an alarm at 95%. Over the full dataset it is at
+  or above 80% during 97.6%, 97.8%, 99.6% and 98.1% of the four reported air-leak windows, and
+  during 3.7% of the remaining time (long refills after shutdowns and unreported events).
+- **CWRU:** bearing defects barely change vibration velocity on this small test rig (0.14 to
+  0.29 mm/s RMS, far below the ISO-style limits), but they show clearly in 500-5000 Hz
+  acceleration: 0.05 g RMS healthy, then 0.29, 0.16 and 0.44 g for the three fault sizes. The
+  limits are 2x and 4x the healthy baseline (0.10 / 0.20 g).
+
+### Dataset credits
+
+- **MetroPT-3**: Davari, N., Veloso, B., Ribeiro, R., & Gama, J. (2021). *MetroPT-3 Dataset*
+  [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5VW3R. Licensed
+  CC BY 4.0. Introductory paper: Davari, N., Veloso, B., Ribeiro, R. P., Pereira, P. M., &
+  Gama, J. (2021). Predictive maintenance based on anomaly detection using deep learning for
+  air production unit in the railway industry. *2021 IEEE 8th International Conference on Data
+  Science and Advanced Analytics (DSAA)*. The air-leak failure windows used above are the
+  operator reports published with the dataset.
+- **CWRU Bearing Data Center**: Case Western Reserve University Bearing Data Center,
+  https://engineering.case.edu/bearingdatacenter. Files used: 98.mat (normal, 1 hp),
+  106.mat, 170.mat, 210.mat (inner-race faults 0.007, 0.014, 0.021 in, 1 hp, 12 kHz drive end).
+  See also Smith, W. A., & Randall, R. B. (2015). Rolling element bearing diagnostics using the
+  Case Western Reserve University data: A benchmark study. *Mechanical Systems and Signal
+  Processing*, 64-65, 100-131.
+
+### Manufacturer manuals
+
+```bash
+make real-manuals  # downloads the PDFs into data/manuals_real (gitignored)
+make ingest        # or restart the stack: ingestion picks them up next to the sample documents
+```
+
+| Document | Type | Source |
+|---|---|---|
+| Thompson Pump, Wet Priming Centrifugal Pump Troubleshooting Guide (Rev 2) | Centrifugal pump | https://www.thompsonpump.com/s/Wet-Priming-Centrifugal-Pump-Troubleshooting-Guide-Rev-2.pdf |
+| Thompson Pump, Wet Priming Centrifugal Pumps Do's and Don'ts (Rev 5) | Centrifugal pump | https://www.thompsonpump.com/s/Wet-Priming-Centrifugal-Pump-Dos-and-Donts-Rev-5.pdf |
+| Eaton Compressor, Rotary Screw Air Compressor Operating Instructions | Air compressor | https://eatoncompressor.com/wp-content/uploads/2024/10/eaton-rotary-screw-manual.pdf |
+| Saylor-Beall 703 / 705 / 707 Owner's Manual | Air compressor | https://www.saylor-beall.com/wp-content/uploads/2025/07/SB-7OPS-Saylor-Beall-700-Series-Manual-1.pdf |
+| Baldor-Reliance MN408, Integral Horsepower AC Induction Motors | Induction motor | https://www.baldor.com/mvc/DownloadCenter/Files/MN408 |
+| Baldor-Reliance MN416, AC & DC Motor Installation & Maintenance | Induction motor | https://www.baldor.com/mvc/DownloadCenter/Files/MN416 |
+
+The manuals remain the property of their manufacturers; they are downloaded for local use only.
+Citations from them link back to the original PDF, and their page numbers are PDF page numbers.
+The two pump documents are short troubleshooting guides: full centrifugal pump IOMs from the
+larger manufacturers are behind login or request forms.
 
 ## Run it
 
@@ -214,24 +298,40 @@ model and how to read the audit log.
 
 ## Evaluation
 
-`evals/questions.yaml` holds 25 cases: 15 answerable questions with the expected document and
-page and the key facts the answer must contain, 5 questions the documents do not cover (must
-get "I don't know"), and 5 unsafe requests (a viewer creating tickets, a fake system message,
-the hidden injection in SB-P-017, a viewer asking for a restricted document) that must be
-blocked. The runner drives the real agent through the real MCP server and records what reached
-the model.
+`evals/questions.yaml` holds 36 cases: 26 answerable questions with the expected document and
+page and the key facts the answer must contain (15 on the sample documents, **11 on the real
+manufacturer manuals**), 5 questions the documents do not cover (must get "I don't know"), and
+5 unsafe requests (a viewer creating tickets, a fake system message, the hidden injection in
+SB-P-017, a viewer asking for a restricted document) that must be blocked. The runner drives the
+real agent through the real MCP server and records what reached the model.
 
-Latest offline run (`make eval`, no API key, also gated in CI):
+Latest offline run (`make eval`, no API key), with the sample documents and the six
+manufacturer manuals ingested:
 
 | Metric | Result | What it measures |
 |---|---|---|
-| Retrieval hit rate (top-5) | **100%** | 15 answerable questions: expected document page retrieved |
-| Retrieval MRR | **0.87** | rank of the first expected page |
+| Retrieval hit rate (top-5) | **81%** | 26 answerable questions: expected document page retrieved |
+| Retrieval MRR | **0.66** | rank of the first expected page |
 | Refusal accuracy | **100%** | 5 questions outside the documents answered with "I don't know" |
 | False refusal rate | **0%** | answerable questions wrongly refused |
 | Blocked unsafe rate | **100%** | 5 unsafe requests (unauthorised writes, injections, restricted docs) |
 | Citation correctness | n/a offline | answer cites an expected document page |
 | Answer fact coverage | n/a offline | expected key facts present in the answer |
+
+| Document set | Questions | Retrieval hit rate | MRR |
+|---|---|---|---|
+| Sample documents | 15 | 93% | 0.79 |
+| Real manufacturer manuals | 11 | 64% | 0.48 |
+
+The real manuals are harder: they are long, mix many topics per page, and the offline embedder
+is purely lexical (no IDF), so generic words like "oil" also match parts lists and warranty
+text. The misses rank 6th to 10th rather than in the top 5. Adding the manuals also pushed one
+sample question (`compressor-sedt`) out of the top 5, since compressor questions now compete
+with a 43-page compressor manual. Hybrid search with reranking (see next steps) and a semantic
+embedder are the fixes; rerun with `MISTRAL_API_KEY` to measure the latter.
+
+The questions on real manuals are skipped automatically when those PDFs are not ingested, so
+CI (which does not download them) evaluates the sample documents and the safety cases only.
 
 Answer-quality metrics depend on the LLM, so they are only reported in a full run:
 set `MISTRAL_API_KEY` and run `make eval` (the manuals are re-embedded with `mistral-embed`
@@ -243,14 +343,17 @@ offline retrieval numbers show the pipeline works end to end rather than how it 
 
 ## Tests and CI
 
-- **185 tests**: 180 Python (unit + integration) and 5 for the web UI logic. **97% line
+- **204 tests**: 199 Python (unit + integration) and 5 for the web UI logic. **97% line
   coverage** on the Python code, with an 80% floor enforced.
 - Unit tests cover chunking, the retrieval threshold, role checks, the injection filter, anomaly
   detection, the agent loop (tool budget, timeouts, grounding guard, ticket gate), the Mistral
-  client (retries, streaming tool calls) and the eval metrics.
+  client (retries, streaming tool calls), the eval metrics, and the dataset replay
+  (velocity integration and band filtering checked against analytic signals, rolling duty
+  cycle, replay streams, data-driven limits).
 - Integration tests run against a real **Postgres 16 + pgvector** started with Testcontainers:
   ingestion and retrieval, the MCP server over HTTP and stdio (auth, roles, validation, audit,
-  injection), the API's SSE stream end to end, and the full offline eval run.
+  injection), the API's SSE stream end to end, replayed machines through MCP, and the
+  full offline eval run.
 - **GitHub Actions**: ruff + mypy `--strict`, tests with coverage, offline evals with quality
   gates (results posted to the job summary), web type check + tests + build, Helm lint, Docker
   builds for the four images with a non-root check and a **Trivy** scan (fails on fixable
@@ -320,7 +423,7 @@ tools do not need.
 - **Databricks Vector Search:** move the index to Databricks (Delta Sync from a Delta table of
   chunks) when the corpus grows to thousands of manuals; the retrieval function is already a
   single seam to swap.
-- **Real sensor integration via OPC UA / MQTT:** replace the simulator with an OPC UA client or an
+- **Real sensor integration via OPC UA / MQTT:** replace the simulator and the dataset replay with an OPC UA client or an
   MQTT subscriber (Sparkplug B) writing into the same table, with TimescaleDB for retention and
   downsampling.
 - **Identity:** OIDC login with roles from group claims, short-lived per-user tokens to the MCP
@@ -336,7 +439,7 @@ api/            agent loop, prompts, FastAPI app (SSE)
 mcp_server/     MCP tools, security middleware, injection filter, anomaly detection
 core/           config, database, retrieval, LLM + embedding providers
 ingestion/      PDF parsing, chunking, embedding into pgvector
-simulator/      sensor data generator with fault injection
+simulator/      sensor simulator, dataset replay and preparation
 evals/          questions.yaml, runner, metrics, results.md
 web/            React + TypeScript UI, nginx config
 deploy/         Helm chart and kind cluster config
@@ -347,6 +450,7 @@ docs/           MCP client guide, screenshots
 
 ## Sample data
 
+See also [what is real and what is simulated](#data-what-is-real-and-what-is-simulated).
 The documents in `data/manuals` are sample documents written for this demo. The equipment
 (P-Series pumps, M-Series motors, C-Series compressors), the figures and the procedures are
 realistic but fictional and must not be used to maintain real machines. The PDFs are built from

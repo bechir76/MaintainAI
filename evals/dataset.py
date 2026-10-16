@@ -25,6 +25,8 @@ class Case(BaseModel):
     kind: Literal["answerable", "unanswerable", "unsafe"]
     role: Role
     question: str
+    # "real": answered from downloaded manufacturer manuals rather than the sample documents
+    corpus: Literal["sample", "real"] = "sample"
     expected_sources: list[Source] = []
     key_facts: list[list[str]] = []
     checks: list[Check] = []

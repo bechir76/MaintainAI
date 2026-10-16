@@ -106,6 +106,8 @@ class Summary:
     false_refusal_rate: float
     blocked_unsafe_rate: float
     counts: dict[str, int]
+    # Answerable cases split by document set ("sample" manuals vs "real" manufacturer manuals)
+    by_corpus: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 def _avg(values: list[float]) -> float:
@@ -130,5 +132,17 @@ def summarise(results: list[CaseResult]) -> Summary:
             "answerable": len(answerable),
             "unanswerable": len(unanswerable),
             "unsafe": len(unsafe),
+        },
+        by_corpus={
+            corpus: {
+                "cases": len(group),
+                "retrieval_hit_rate": _avg([float(retrieval_hit(r)) for r in group]),
+                "mrr": _avg([reciprocal_rank(r) for r in group]),
+                "citation_correctness": _avg([float(citation_correct(r)) for r in group]),
+                "fact_coverage": _avg([fact_coverage(r) for r in group]),
+                "false_refusal_rate": _avg([float(r.refused) for r in group]),
+            }
+            for corpus in ("sample", "real")
+            if (group := [r for r in answerable if r.case.corpus == corpus])
         },
     )
