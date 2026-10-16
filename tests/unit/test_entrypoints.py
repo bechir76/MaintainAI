@@ -107,7 +107,7 @@ def test_simulator_main_loop_stops_on_signal(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(runner, "get_settings", lambda: Settings(_env_file=None, sim_faults=""))
     monkeypatch.setattr(runner, "create_pool", lambda *a, **k: pool)
-    monkeypatch.setattr(runner, "seed_machines", lambda p: None)
+    monkeypatch.setattr(runner, "seed_machines", lambda *a: None)
     monkeypatch.setattr(runner, "backfill", lambda *a: None)
     monkeypatch.setattr(runner, "tick", fake_tick)
     monkeypatch.setattr(runner.time, "sleep", lambda s: None)

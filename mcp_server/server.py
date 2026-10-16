@@ -200,13 +200,15 @@ class ToolGuard:
 
 
 def _reading(row: repo.Row) -> ReadingOut:
-    ts, temperature, vibration, pressure, current = row
+    ts, temperature, vibration, pressure, current, accel, duty = row
     return ReadingOut(
         ts=ts.isoformat(timespec="seconds"),
         temperature_c=temperature,
         vibration_mm_s=vibration,
         pressure_bar=pressure,
         current_a=current,
+        bearing_accel_g=accel,
+        load_duty_pct=duty,
     )
 
 
@@ -229,6 +231,7 @@ def _info(machine: Machine) -> MachineInfo:
         model=machine.model,
         location=machine.location,
         rated_current_a=machine.rated_current_a,
+        data_source=machine.data_source,
     )
 
 
@@ -281,6 +284,7 @@ def build_server(deps: ServerDeps) -> MCPServer:
                     text=clean.text,
                     flagged=clean.flagged,
                     findings=clean.findings,
+                    source_url=chunk.source_url,
                 )
             )
         note = None

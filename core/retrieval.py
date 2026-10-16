@@ -27,6 +27,7 @@ class RetrievedChunk:
     content: str
     score: float
     machine_type: str
+    source_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,7 @@ async def search(
 
     sql = f"""
         SELECT c.id, d.doc_id, d.filename, d.title, c.page, c.content,
-               1 - (c.embedding <=> %(q)s) AS score, c.machine_type
+               1 - (c.embedding <=> %(q)s) AS score, c.machine_type, d.source_url
         FROM chunks c JOIN documents d ON d.id = c.document_id
         WHERE c.embedding_model = %(model)s
           AND c.access_level = ANY(%(levels)s)
@@ -90,6 +91,7 @@ async def search(
             content=r[5],
             score=round(float(r[6]), 4),
             machine_type=r[7],
+            source_url=r[8],
         )
         for r in rows
     ]

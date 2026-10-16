@@ -2,7 +2,7 @@ import itertools
 
 import pytest
 
-from ingestion.chunking import chunk_pages, chunk_text
+from ingestion.chunking import chunk_pages, chunk_text, has_content
 from ingestion.pdf import Page
 
 
@@ -69,10 +69,11 @@ def test_overlap_must_be_smaller_than_size() -> None:
 
 
 def test_chunks_never_cross_pages() -> None:
-    pages = [Page(1, make_text(20)), Page(2, "Only page two."), Page(3, "")]
+    page_two = "Only page two. " * 8
+    pages = [Page(1, make_text(20)), Page(2, page_two), Page(3, "")]
     chunks = chunk_pages(pages, size=300, overlap=50)
     assert {c.page for c in chunks} == {1, 2}
-    assert next(c for c in chunks if c.page == 2).text == "Only page two."
+    assert next(c for c in chunks if c.page == 2).text == page_two
     assert [c.index for c in chunks] == list(range(len(chunks)))
 
 
@@ -81,3 +82,9 @@ def test_numbered_steps_are_not_treated_as_headings() -> None:
     text = f"{body}\n1. Confirm the reading. Take a manual reading.\n2. Check the trend."
     chunks = chunk_text(text, size=400, overlap=100)
     assert len(chunks) == 1
+
+
+def test_pages_with_only_a_header_are_dropped() -> None:
+    pages = [Page(1, "Eaton Compressor Rotary Screw Compressor"), Page(2, make_text(5))]
+    assert {c.page for c in chunk_pages(pages)} == {2}
+    assert not has_content("2-12 Installation & Operation")

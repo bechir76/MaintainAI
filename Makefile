@@ -1,4 +1,4 @@
-.PHONY: help install up down logs test test-unit lint format ingest eval eval-full manuals simulate mcp api web kind-deploy kind-delete
+.PHONY: help install up up-replay down logs test test-unit lint format ingest eval manuals datasets real-manuals simulate mcp api web kind-deploy kind-delete
 
 UV ?= uv
 COMPOSE ?= docker compose
@@ -15,6 +15,9 @@ up: ## Start the full stack (db, simulator, MCP server, API, web) and ingest man
 	@echo "Web UI:  http://localhost:8080"
 	@echo "API:     http://localhost:8000/docs"
 	@echo "MCP:     http://localhost:8001/mcp"
+
+up-replay: ## Like `up`, but C-1 and P-3 replay real datasets (run `make datasets` first)
+	SIM_MODE=replay $(COMPOSE) up --build -d
 
 down: ## Stop the stack
 	$(COMPOSE) down
@@ -40,6 +43,12 @@ format: ## Auto-format Python code
 
 manuals: ## Rebuild the sample PDF manuals from Markdown sources
 	$(UV) run python scripts/build_manuals.py
+
+datasets: ## Download MetroPT-3 and CWRU bearing data into data/raw and prepare the replay files
+	$(UV) run --group data python scripts/download_datasets.py
+
+real-manuals: ## Download manufacturer manuals into data/manuals_real
+	$(UV) run python scripts/download_manuals.py
 
 ingest: ## Parse, chunk and embed the manuals into pgvector
 	$(UV) run python -m ingestion

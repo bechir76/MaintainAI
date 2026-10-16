@@ -17,7 +17,7 @@ from ingestion.pdf import parse_pdf
 log = logging.getLogger(__name__)
 
 # Bump when parsing or chunking changes so existing documents are re-ingested.
-PIPELINE_VERSION = 2
+PIPELINE_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ class DocumentMeta:
     title: str
     machine_type: str
     access_level: str
+    source_url: str | None = None  # where a downloaded manufacturer manual came from
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ def load_manifest(directory: Path) -> list[DocumentMeta]:
             title=d["title"],
             machine_type=d["machine_type"],
             access_level=d["access_level"],
+            source_url=d.get("source_url"),
         )
         for d in data["documents"]
     ]
@@ -91,8 +93,9 @@ async def ingest_document(
         doc_row = conn.execute(
             """
             INSERT INTO documents
-                (doc_id, filename, title, machine_type, access_level, pages, sha256)
-            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                (doc_id, filename, title, machine_type, access_level, pages, sha256,
+                 source_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (
                 meta.doc_id,
@@ -102,6 +105,7 @@ async def ingest_document(
                 meta.access_level,
                 len(pages),
                 sha,
+                meta.source_url,
             ),
         ).fetchone()
         assert doc_row is not None

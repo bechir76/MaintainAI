@@ -94,6 +94,9 @@ class Passage(BaseModel):
         description="True if instruction-like text was removed from this passage."
     )
     findings: list[str] = []
+    source_url: str | None = Field(
+        default=None, description="Manufacturer URL for downloaded third-party manuals."
+    )
 
 
 class SearchManualsOutput(BaseModel):
@@ -110,6 +113,9 @@ class MachineInfo(BaseModel):
     model: str
     location: str
     rated_current_a: float
+    data_source: str = Field(
+        description="Where the readings come from: 'simulated', or the name of a replayed dataset."
+    )
 
 
 class ReadingOut(BaseModel):
@@ -118,6 +124,8 @@ class ReadingOut(BaseModel):
     vibration_mm_s: float | None
     pressure_bar: float | None
     current_a: float | None
+    bearing_accel_g: float | None = None
+    load_duty_pct: float | None = None
 
 
 class FlagOut(BaseModel):

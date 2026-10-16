@@ -30,3 +30,7 @@ Thumbs.db
 # Local artifacts
 evals/results.json
 *.log
+
+# Downloaded datasets and third-party manuals (see scripts/download_*.py); never committed
+data/raw/
+data/manuals_real/

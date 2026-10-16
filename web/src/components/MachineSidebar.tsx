@@ -7,8 +7,13 @@ const STATUS_LABEL: Record<Status, string> = {
   no_data: "No data",
 };
 
-function fmt(value: number | null | undefined, unit: string): string {
-  return value === null || value === undefined ? "–" : `${value.toFixed(1)} ${unit}`;
+function fmt(value: number | null | undefined, unit: string, digits = 1): string {
+  return value === null || value === undefined ? "–" : `${value.toFixed(digits)} ${unit}`;
+}
+
+/** Replayed machines carry the dataset name; everything else is simulated. */
+export function isReplayed(m: Machine): boolean {
+  return m.data_source !== "simulated";
 }
 
 interface Props {
@@ -49,6 +54,11 @@ export function MachineSidebar({ machines, error, onAsk }: Props) {
               <div className="machine-meta">
                 {m.model} · {m.location}
               </div>
+              {isReplayed(m) && (
+                <div className="data-source" title="Readings replayed from a public dataset">
+                  Real data · {m.data_source}
+                </div>
+              )}
               {m.latest && (
                 <dl className="readings">
                   <div>
@@ -67,6 +77,18 @@ export function MachineSidebar({ machines, error, onAsk }: Props) {
                     <dt>Curr</dt>
                     <dd>{fmt(m.latest.current_a, "A")}</dd>
                   </div>
+                  {m.latest.load_duty_pct != null && (
+                    <div>
+                      <dt>Duty</dt>
+                      <dd>{fmt(m.latest.load_duty_pct, "%", 0)}</dd>
+                    </div>
+                  )}
+                  {m.latest.bearing_accel_g != null && (
+                    <div>
+                      <dt>Brg acc</dt>
+                      <dd>{fmt(m.latest.bearing_accel_g, "g", 2)}</dd>
+                    </div>
+                  )}
                 </dl>
               )}
               {m.flags.map((f) => (

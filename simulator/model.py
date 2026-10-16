@@ -22,6 +22,8 @@ class Reading:
     vibration_mm_s: float
     pressure_bar: float | None
     current_a: float
+    bearing_accel_g: float | None = None
+    load_duty_pct: float | None = None
 
 
 # Normal operating point: (temperature, vibration, pressure, current as fraction of rated)

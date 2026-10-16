@@ -38,6 +38,16 @@ export function SourcePanel({ citation, onClose }: Props) {
             <dt>Relevance</dt>
             <dd>{citation.score?.toFixed(2)}</dd>
           </div>
+          {citation.source_url && (
+            <div>
+              <dt>Original</dt>
+              <dd>
+                <a href={citation.source_url} target="_blank" rel="noopener noreferrer">
+                  Manufacturer PDF
+                </a>
+              </dd>
+            </div>
+          )}
         </dl>
       )}
     </aside>

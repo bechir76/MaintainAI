@@ -7,10 +7,48 @@ reference); each one carries its source so anomaly flags can be cited.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 MachineType = Literal["pump", "motor", "compressor"]
-Metric = Literal["temperature_c", "vibration_mm_s", "pressure_bar", "current_a"]
+Metric = Literal[
+    "temperature_c",
+    "vibration_mm_s",
+    "pressure_bar",
+    "current_a",
+    "bearing_accel_g",  # high-frequency bearing acceleration, only from replayed CWRU data
+    "load_duty_pct",  # share of the last 30 min the compressor ran loaded, from MetroPT-3
+]
+
+
+@dataclass(frozen=True)
+class Limit:
+    metric: Metric
+    label: str
+    warning: float
+    alarm: float
+    direction: Literal["high", "low"] = "high"
+    source: str = "CMS-001 Condition Monitoring Alarm Limits, p.2"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "metric": self.metric,
+            "label": self.label,
+            "warning": self.warning,
+            "alarm": self.alarm,
+            "direction": self.direction,
+            "source": self.source,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Limit:
+        return cls(
+            metric=data["metric"],
+            label=data["label"],
+            warning=float(data["warning"]),
+            alarm=float(data["alarm"]),
+            direction=data.get("direction", "high"),
+            source=data.get("source", ""),
+        )
 
 
 @dataclass(frozen=True)
@@ -21,6 +59,9 @@ class Machine:
     model: str
     location: str
     rated_current_a: float
+    data_source: str = "simulated"
+    # Per-machine limits replacing (or adding to) the type defaults, e.g. for replayed assets
+    limits: tuple[Limit, ...] = ()
 
 
 MACHINES: dict[str, Machine] = {
@@ -35,16 +76,6 @@ MACHINES: dict[str, Machine] = {
         Machine("C-1", "Plant air compressor", "compressor", "C-37", "Compressor room", 67.0),
     )
 }
-
-
-@dataclass(frozen=True)
-class Limit:
-    metric: Metric
-    label: str
-    warning: float
-    alarm: float
-    direction: Literal["high", "low"] = "high"
-    source: str = "CMS-001 Condition Monitoring Alarm Limits, p.2"
 
 
 # Current limits are expressed as a fraction of the machine's rated current.
@@ -73,7 +104,9 @@ def limits_for(machine: Machine) -> tuple[Limit, ...]:
     current = Limit(
         "current_a",
         "Motor current (A)",
-        round(machine.rated_current_a * CURRENT_WARNING_RATIO, 1),
-        round(machine.rated_current_a * CURRENT_ALARM_RATIO, 1),
+        round(machine.rated_current_a * CURRENT_WARNING_RATIO, 2),
+        round(machine.rated_current_a * CURRENT_ALARM_RATIO, 2),
     )
-    return (*LIMITS[machine.type], current)
+    limits = {lim.metric: lim for lim in (*LIMITS[machine.type], current)}
+    limits.update({lim.metric: lim for lim in machine.limits})
+    return tuple(limits.values())

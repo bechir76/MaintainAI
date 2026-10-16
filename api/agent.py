@@ -60,6 +60,7 @@ class Citation:
     page: int | None = None
     score: float | None = None
     machine_id: str | None = None
+    source_url: str | None = None
 
 
 @dataclass
@@ -90,6 +91,7 @@ class Sources:
                 document=p["document"],
                 page=p["page"],
                 score=p["score"],
+                source_url=p.get("source_url"),
             ),
         )
 
@@ -126,21 +128,25 @@ class MCPToolExecutor:
 
 def _sensor_summary(payload: dict[str, Any]) -> str:
     machine = payload["machine"]
-    units = {
-        "temperature_c": "°C",
-        "vibration_mm_s": "mm/s",
-        "pressure_bar": "bar",
-        "current_a": "A",
+    labels = {
+        "temperature_c": ("temperature", "°C"),
+        "vibration_mm_s": ("vibration", "mm/s"),
+        "pressure_bar": ("pressure", "bar"),
+        "current_a": ("current", "A"),
+        "bearing_accel_g": ("bearing acceleration", "g"),
+        "load_duty_pct": ("loaded duty", "%"),
     }
-    latest = ", ".join(
-        f"{metric.split('_')[0]} {s['latest']:g} {units.get(metric, '')}".strip()
-        for metric, s in payload.get("stats", {}).items()
-    )
+    parts = []
+    for metric, s in payload.get("stats", {}).items():
+        label, unit = labels.get(metric, (metric, ""))
+        parts.append(f"{label} {s['latest']:g} {unit}".strip())
+    latest = ", ".join(parts)
     flags = "; ".join(f["message"] for f in payload.get("flags", [])) or "no limit exceeded"
     return (
         f"{machine['id']} ({machine['name']}, {machine['model']}), last "
         f"{payload['window_minutes']} min, {payload['count']} readings. Status: "
-        f"{payload['status']}. Latest: {latest}. Flags: {flags}."
+        f"{payload['status']}. Latest: {latest}. Flags: {flags}. "
+        f"Data source: {machine.get('data_source', 'simulated')}."
     )
 
 

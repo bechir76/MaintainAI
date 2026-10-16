@@ -16,3 +16,5 @@ tests
 scripts
 data/manuals/src
 evals/results.*
+data/raw
+data/manuals_real

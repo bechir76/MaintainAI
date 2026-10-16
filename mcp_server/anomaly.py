@@ -15,7 +15,14 @@ from core.machines import Limit, Machine, Metric, limits_for
 
 Level = Literal["warning", "alarm"]
 Status = Literal["ok", "warning", "alarm", "no_data"]
-METRICS: tuple[Metric, ...] = ("temperature_c", "vibration_mm_s", "pressure_bar", "current_a")
+METRICS: tuple[Metric, ...] = (
+    "temperature_c",
+    "vibration_mm_s",
+    "pressure_bar",
+    "current_a",
+    "bearing_accel_g",
+    "load_duty_pct",
+)
 EVALUATION_WINDOW = 3
 
 

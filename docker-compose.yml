@@ -41,6 +41,9 @@ services:
     command: ["python", "-m", "ingestion"]
     environment:
       <<: *python-env
+    volumes:
+      # Manufacturer manuals from `make real-manuals`; ingested when present
+      - ./data/manuals_real:/app/data/manuals_real:ro
     depends_on:
       db: { condition: service_healthy }
     healthcheck: { disable: true }
@@ -53,6 +56,13 @@ services:
       <<: *python-env
       SIM_FAULTS: ${SIM_FAULTS:-P-3:high_vibration,M-2:overheating}
       SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-5}
+      # SIM_MODE=replay streams MetroPT-3 (C-1) and CWRU (P-3); needs `make datasets`
+      SIM_MODE: ${SIM_MODE:-simulated}
+      REPLAY_SPEED: ${REPLAY_SPEED:-60}
+      REPLAY_START: ${REPLAY_START:-2020-04-17T21:00:00}
+      REPLAY_STAGE_MINUTES: ${REPLAY_STAGE_MINUTES:-3}
+    volumes:
+      - ./data/raw/processed:/app/data/raw/processed:ro
     depends_on:
       db: { condition: service_healthy }
       ingest: { condition: service_completed_successfully }

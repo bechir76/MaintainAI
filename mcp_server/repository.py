@@ -9,36 +9,42 @@ from typing import Any
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from core.machines import Machine, Metric
+from core.machines import Limit, Machine, Metric
 from mcp_server.anomaly import METRICS
+
+_MACHINE_COLUMNS = "id, name, machine_type, model, location, rated_current_a, data_source, limits"
 
 
 def _machine(row: tuple[Any, ...]) -> Machine:
     return Machine(
-        id=row[0], name=row[1], type=row[2], model=row[3], location=row[4], rated_current_a=row[5]
+        id=row[0],
+        name=row[1],
+        type=row[2],
+        model=row[3],
+        location=row[4],
+        rated_current_a=row[5],
+        data_source=row[6],
+        limits=tuple(Limit.from_dict(d) for d in row[7] or ()),
     )
 
 
 def list_machines(pool: ConnectionPool) -> list[Machine]:
     with pool.connection() as conn:
-        rows = conn.execute(
-            "SELECT id, name, machine_type, model, location, rated_current_a "
-            "FROM machines ORDER BY id"
-        ).fetchall()
+        rows = conn.execute(f"SELECT {_MACHINE_COLUMNS} FROM machines ORDER BY id").fetchall()
     return [_machine(r) for r in rows]
 
 
 def get_machine(pool: ConnectionPool, machine_id: str) -> Machine | None:
     with pool.connection() as conn:
         row = conn.execute(
-            "SELECT id, name, machine_type, model, location, rated_current_a "
-            "FROM machines WHERE id = %s",
+            f"SELECT {_MACHINE_COLUMNS} FROM machines WHERE id = %s",
             (machine_id,),
         ).fetchone()
     return _machine(row) if row else None
 
 
-Row = tuple[datetime, float | None, float | None, float | None, float | None]
+# ts followed by one value per metric, in METRICS order
+Row = tuple[Any, ...]
 
 
 def recent_readings(
@@ -48,7 +54,8 @@ def recent_readings(
     with pool.connection() as conn:
         rows = conn.execute(
             """
-            SELECT machine_id, ts, temperature_c, vibration_mm_s, pressure_bar, current_a
+            SELECT machine_id, ts, temperature_c, vibration_mm_s, pressure_bar, current_a,
+                   bearing_accel_g, load_duty_pct
             FROM sensor_readings
             WHERE machine_id = ANY(%s) AND ts >= now() - make_interval(mins => %s)
             ORDER BY machine_id, ts
@@ -57,7 +64,7 @@ def recent_readings(
         ).fetchall()
     out: dict[str, list[Row]] = defaultdict(list)
     for r in rows:
-        out[r[0]].append((r[1], r[2], r[3], r[4], r[5]))
+        out[r[0]].append(tuple(r[1:]))
     return out
 
 
@@ -66,7 +73,7 @@ def series(rows: list[Row]) -> dict[Metric, list[float]]:
     for i, metric in enumerate(METRICS, start=1):
         values = [r[i] for r in rows if r[i] is not None]
         if values:
-            result[metric] = values  # type: ignore[assignment]
+            result[metric] = values
     return result
 
 

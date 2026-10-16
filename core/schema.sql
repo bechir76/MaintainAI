@@ -69,3 +69,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail     TEXT
 );
 CREATE INDEX IF NOT EXISTS audit_log_ts ON audit_log (ts DESC);
+
+-- Added for replayed real datasets and downloaded manufacturer manuals
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS data_source TEXT NOT NULL DEFAULT 'simulated';
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS limits JSONB;
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS bearing_accel_g REAL;
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS load_duty_pct REAL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_url TEXT;

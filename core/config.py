@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     sim_interval_seconds: float = 5.0
     sim_faults: str = "P-3:high_vibration,M-2:overheating"
     sim_backfill_minutes: int = 15
+    # "replay" streams real public datasets for C-1 (MetroPT-3) and P-3 (CWRU bearings)
+    sim_mode: Literal["simulated", "replay"] = "simulated"
+    replay_dir: str = "data/raw/processed"
+    replay_speed: float = Field(default=60.0, gt=0)  # dataset seconds per wall-clock second
+    replay_start: str = "2020-04-17T21:00:00"  # 3 h before the first reported air leak
+    replay_stage_minutes: float = Field(default=3.0, gt=0)  # per CWRU bearing condition
 
     @property
     def resolved_provider(self) -> Literal["mistral", "fake"]:

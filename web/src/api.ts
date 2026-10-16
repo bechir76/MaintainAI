@@ -16,6 +16,8 @@ export interface Reading {
   vibration_mm_s: number | null;
   pressure_bar: number | null;
   current_a: number | null;
+  bearing_accel_g?: number | null;
+  load_duty_pct?: number | null;
 }
 
 export interface Machine {
@@ -25,6 +27,7 @@ export interface Machine {
   model: string;
   location: string;
   rated_current_a: number;
+  data_source: string;
   status: Status;
   flags: Flag[];
   latest: Reading | null;
@@ -40,6 +43,7 @@ export interface Citation {
   page: number | null;
   score: number | null;
   machine_id: string | null;
+  source_url?: string | null;
 }
 
 export interface ToolActivity {

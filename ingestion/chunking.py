@@ -88,9 +88,20 @@ def chunk_text(text: str, size: int = 900, overlap: int = 150) -> list[str]:
     return chunks
 
 
+# Pages that are images in the PDF leave only a running header behind. Such chunks carry
+# no content, but would still match any question that names the product.
+MIN_CONTENT_CHARS = 80
+_WORD_CHAR = re.compile(r"\w")
+
+
+def has_content(text: str) -> bool:
+    return len(_WORD_CHAR.findall(text)) >= MIN_CONTENT_CHARS
+
+
 def chunk_pages(pages: list[Page], size: int = 900, overlap: int = 150) -> list[Chunk]:
     chunks: list[Chunk] = []
     for page in pages:
         for text in chunk_text(page.text, size, overlap):
-            chunks.append(Chunk(page=page.number, index=len(chunks), text=text))
+            if has_content(text):
+                chunks.append(Chunk(page=page.number, index=len(chunks), text=text))
     return chunks

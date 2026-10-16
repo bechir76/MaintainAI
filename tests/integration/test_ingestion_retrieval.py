@@ -25,9 +25,11 @@ def test_chunks_have_metadata(ingested: ConnectionPool) -> None:
     with ingested.connection() as conn:
         row = conn.execute(
             """
-            SELECT count(*), count(DISTINCT document_id), min(page), max(page)
-            FROM chunks WHERE embedding_model = 'fake-hash-v2'
-            """
+            SELECT count(*), count(DISTINCT c.document_id), min(c.page), max(c.page)
+            FROM chunks c JOIN documents d ON d.id = c.document_id
+            WHERE c.embedding_model = 'fake-hash-v2' AND d.doc_id = ANY(%s)
+            """,
+            ([m.doc_id for m in load_manifest(MANUALS)],),
         ).fetchone()
         restricted = conn.execute(
             """
